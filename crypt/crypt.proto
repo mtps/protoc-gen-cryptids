@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package crypt;
+
+option go_package = "github.com/FigureTechnologies/protobuf/go/ext/crypt;crypt";
+option java_package = "com.figure.protobuf.ext";
+option java_outer_classname = "CryptProto";
+
+import "google/protobuf/descriptor.proto";
+
+message FieldOptions {
+    bool sensitive = 1;
+}
+
+extend google.protobuf.MessageOptions {
+    FieldOptions opts = 8675305;
+}
