@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "crypt/ext.proto";
+import "crypt/types.proto";
+
+message MyMessage {
+    string ssn = 1 [(sensitive) = true];
+
+    crypt.types.EString = 2;
+}

@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package crypt;
 
-option go_package = "github.com/FigureTechnologies/protobuf/go/ext/crypt;crypt";
-option java_package = "com.figure.protobuf.ext";
-option java_outer_classname = "CryptProto";
+option go_package = "github.com/FigureTechnologies/protobuf/go/crypt/ext;extpb";
+option java_package = "com.figure.protobuf.crypt.ext";
+option java_outer_classname = "CryptExtProto";
 
 import "google/protobuf/descriptor.proto";
 
