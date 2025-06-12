@@ -10,3 +10,19 @@ option java_outer_classname = "CryptProto";
 message EString {
     bytes value = 1;
 }
+
+message EBytes {
+    bytes value = 1;
+}
+
+message ETimestamp {
+    bytes value = 1;
+}
+
+message EInt {
+    bytes value = 1;
+}
+
+message EAny {
+    bytes value = 1;
+}

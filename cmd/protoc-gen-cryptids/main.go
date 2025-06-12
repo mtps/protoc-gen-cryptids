@@ -6,6 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -22,12 +23,24 @@ func main() {
 }
 
 var typeEString = (&crypt.EString{}).ProtoReflect().Descriptor()
+var typeEBytes = (&crypt.EBytes{}).ProtoReflect().Descriptor()
+var typeETimestamp = (&crypt.ETimestamp{}).ProtoReflect().Descriptor()
+var typeEInt = (&crypt.EInt{}).ProtoReflect().Descriptor()
+var typeEAny = (&crypt.EAny{}).ProtoReflect().Descriptor()
 
 func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
 	fmt.Fprintf(os.Stderr, "generating for %s\n", file.Desc.Path())
+
+	var javaClass string
+	if file.Proto.Options.JavaOuterClassname != nil {
+		javaClass = *file.Proto.Options.JavaOuterClassname
+	} else {
+		javaClass = capitalize(string(file.Desc.Name()))
+	}
+
 	javaPackage := *file.Proto.Options.JavaPackage
 	javaDirectory := strings.ReplaceAll(javaPackage, ".", "/")
-	filename := javaDirectory + "/" + string(file.Desc.Name()) + "_crypt.pb.kt"
+	filename := javaDirectory + "/" + javaClass + "Crypt.pb.kt"
 
 	fmt.Fprintf(os.Stderr, "javaDir:%s  javaPkg:%s filename:%s  goimportpath:%s\n", javaDirectory, javaPackage, filename, file.GoImportPath)
 	g := gen.NewGeneratedFile(filename, file.GoImportPath)
@@ -37,18 +50,83 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	g.P("package ", javaPackage)
 	g.P()
 	for _, message := range file.Messages {
+		typeName := string(message.Desc.Name())
 		for _, field := range message.Fields {
 			// Handle EStrings
 			if field.Desc.Kind() == protoreflect.MessageKind {
 				fieldTypeName := field.Desc.Message().FullName()
-				if fieldTypeName == typeEString.FullName() {
-					fmt.Fprintf(os.Stderr, "detected encrypted string field %s\n", field.Desc.FullName())
-					g.P("fun ", message.Desc.Name(), ".enc", field.Desc.Name(), "(provider: () -> Unit): ByteArray =")
-					g.P("    provider.invoke(it.value.toByteArray()))")
-					g.P()
+				fieldName := capitalize(snakeToCamel(string(field.Desc.Name())))
+				switch fieldTypeName {
+				case typeEString.FullName():
+					fmt.Fprintf(os.Stderr, "detected encrypted string field %s\n", fieldName)
+					emitEStringWrapper(g, fieldName, typeName)
+					break
+
+				case typeEBytes.FullName():
+					fmt.Fprintf(os.Stderr, "detected encrypted bytes field %s\n", fieldName)
+					emitEBytesWrapper(g, fieldName, typeName)
+					break
+
+				case typeETimestamp.FullName():
+					fmt.Fprintf(os.Stderr, "detected encrypted timestamp field %s\n", fieldName)
+					emitETimestampWrapper(g, fieldName, typeName)
+					break
+
+				case typeEInt.FullName():
+					fmt.Fprintf(os.Stderr, "detected encrypted int field %s\n", fieldName)
+					emitEIntWrapper(g, fieldName, typeName)
+					break
+
+				case typeEAny.FullName():
+					fmt.Fprintf(os.Stderr, "detected encrypted anything field %s\n", fieldName)
+					emitEAnyWrapper(g, fieldName, typeName)
+					break
 				}
 			}
 		}
 	}
+	fmt.Fprintf(os.Stderr, "writing file %s\n", filename)
 	return g
+}
+
+func capitalize(s string) string {
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+var snakeCaseRx = regexp.MustCompile(`_([a-z])`)
+
+func snakeToCamel(s string) string {
+	return snakeCaseRx.ReplaceAllStringFunc(s, func(match string) string {
+		return strings.ToUpper(match[1:])
+	})
+}
+
+func emitEStringWrapper(g *protogen.GeneratedFile, fieldName string, typeName string) {
+	g.P("fun ", typeName, ".decrypt", fieldName, "(provider: (ByteArray) -> ByteArray): String =")
+	g.P("    String(provider(it.value.toByteArray())))")
+	g.P()
+}
+
+func emitEBytesWrapper(g *protogen.GeneratedFile, fieldName string, typeName string) {
+	g.P("fun ", typeName, ".decrypt", fieldName, "(provider: (ByteArray) -> ByteArray): ByteArray =")
+	g.P("    provider(it.value.toByteArray())")
+	g.P()
+}
+
+func emitETimestampWrapper(g *protogen.GeneratedFile, fieldName string, typeName string) {
+	g.P("fun ", typeName, ".decrypt", fieldName, "(provider: (ByteArray) -> ByteArray): com.google.protobuf.Timestamp =")
+	g.P("    Timestamp.parse(provider(it.value))")
+	g.P()
+}
+
+func emitEIntWrapper(g *protogen.GeneratedFile, fieldName string, typeName string) {
+	g.P("fun ", typeName, ".decrypt", fieldName, "(provider: (ByteArray) -> ByteArray): Int =")
+	g.P("    Int.valueOf(parse(provider(it.value)))")
+	g.P()
+}
+
+func emitEAnyWrapper(g *protogen.GeneratedFile, fieldName string, typeName string) {
+	g.P("fun ", typeName, ".decrypt", fieldName, "(provider: (ByteArray) -> ByteArray): com.google.protobuf.Any = ")
+	g.P("    com.google.protobuf.Any.Unmarshal(provider(it.value))")
+	g.P()
 }
