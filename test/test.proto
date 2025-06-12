@@ -1,10 +1,15 @@
 syntax = "proto3";
 
+package test;
+
+option go_package = "github.com/mtps/protoc-gen-cryptids/test";
+option java_package = "com.github.mtps.crypt";
+
 import "crypt/ext.proto";
 import "crypt/types.proto";
 
 message MyMessage {
-    string ssn = 1 [(sensitive) = true];
+    string ssn = 1 [(crypt.opts).sensitive = true, debug_redact = true];
 
-    crypt.types.EString = 2;
+    crypt.EString encrypted_ssn = 2;
 }

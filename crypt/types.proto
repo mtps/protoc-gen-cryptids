@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package crypt;
 
-option go_package = "github.com/FigureTechnologies/protobuf/go/crypt;cryptpb";
-option java_package = "com.figure.protobuf.crypt";
+option go_package = "github.com/mtps/protoc-gen-cryptids/crypt;cryptpb";
+option java_package = "com.github.mtps.protobuf.crypt";
 option java_outer_classname = "CryptProto";
 
 // EString is a wrapper for an encrypted string.
 message EString {
-    string value = 1;
+    bytes value = 1;
 }
