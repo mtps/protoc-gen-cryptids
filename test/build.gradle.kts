@@ -22,6 +22,9 @@ repositories {
 dependencies {
     // This dependency is used by the application.
     implementation(libs.guava)
+    implementation("com.google.protobuf:protobuf-java:4.31.1")
+    implementation("com.google.protobuf:protobuf-java-util:4.31.1")
+    implementation("com.google.protobuf:protobuf-kotlin:4.31.1")
 }
 
 testing {

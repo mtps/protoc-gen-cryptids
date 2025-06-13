@@ -6,5 +6,5 @@ gen:
 
 test: gen all
 	mkdir -p ./test/src/generated/{java,kotlin}
-	protoc --java_out=./test/src/generated/java --kotlin_out=./test/src/generated/kotlin --cryptids_out=paths=source_relative:./test/src/generated/kotlin test/test.proto
+	protoc --java_out=./test/src/generated/java --kotlin_out=./test/src/generated/kotlin --cryptids_out=paths=source_relative:./test/src/generated/kotlin test/test.proto crypt/types.proto
  

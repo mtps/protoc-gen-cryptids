@@ -5,12 +5,9 @@ package test;
 option go_package = "github.com/mtps/protoc-gen-cryptids/test";
 option java_package = "com.github.mtps.crypt";
 
-import "crypt/ext.proto";
 import "crypt/types.proto";
 
 message MyMessage {
-    string ssn = 1 [(crypt.opts).sensitive = true, debug_redact = true];
-
     crypt.EString encrypted_ssn = 2;
     crypt.EBytes encrypted_document = 3;
     crypt.EInt encrypted_age = 4;
