@@ -5,6 +5,6 @@ gen:
 	protoc --go_out=. --go_opt=paths=source_relative crypt/ext.proto crypt/types.proto
 
 test: gen all
-	mkdir -p ./src/generated/kotlin
-	protoc --kotlin_out=./src/generated/kotlin --cryptids_out=paths=source_relative:./src/generated/kotlin test/test.proto
+	mkdir -p ./test/src/generated/{java,kotlin}
+	protoc --java_out=./test/src/generated/java --kotlin_out=./test/src/generated/kotlin --cryptids_out=paths=source_relative:./test/src/generated/kotlin test/test.proto
  

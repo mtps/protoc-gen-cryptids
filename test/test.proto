@@ -12,4 +12,8 @@ message MyMessage {
     string ssn = 1 [(crypt.opts).sensitive = true, debug_redact = true];
 
     crypt.EString encrypted_ssn = 2;
+    crypt.EBytes encrypted_document = 3;
+    crypt.EInt encrypted_age = 4;
+    crypt.ETimestamp encrypted_date = 5;
+    crypt.EAny encrypted_something = 6;
 }
