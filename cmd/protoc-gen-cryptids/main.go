@@ -37,6 +37,8 @@ func generateCryptProvider(gen *protogen.Plugin) *protogen.GeneratedFile {
 	g.P("object CryptProvider {")
 	g.P("    var enc: (ByteArray) -> ByteArray = { it }")
 	g.P("    var dec: (ByteArray) -> ByteArray = { it }")
+	g.P("    fun registerEnc(f: (ByteArray) -> ByteArray) { enc = f }")
+	g.P("    fun registerDec(f: (ByteArray) -> ByteArray) { dec = f }")
 	g.P("}")
 	return g
 }
