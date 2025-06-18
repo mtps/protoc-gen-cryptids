@@ -25,6 +25,7 @@ dependencies {
     implementation("com.google.protobuf:protobuf-java:4.31.1")
     implementation("com.google.protobuf:protobuf-java-util:4.31.1")
     implementation("com.google.protobuf:protobuf-kotlin:4.31.1")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 testing {

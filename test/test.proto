@@ -3,14 +3,14 @@ syntax = "proto3";
 package test;
 
 option go_package = "github.com/mtps/protoc-gen-cryptids/test";
-option java_package = "com.github.mtps.crypt";
+option java_package = "com.example.mytest";
 
 import "crypt/types.proto";
 
 message MyMessage {
-    crypt.EString encrypted_ssn = 2;
-    crypt.EBytes encrypted_document = 3;
-    crypt.EInt encrypted_age = 4;
-    crypt.ETimestamp encrypted_date = 5;
-    crypt.EAny encrypted_something = 6;
+    crypt.EString encrypted_string = 2;
+    crypt.EBytes encrypted_bytes = 3;
+    crypt.EInt encrypted_int = 4;
+    crypt.ETimestamp encrypted_timestamp = 5;
+    crypt.EAny encrypted_any = 6;
 }
