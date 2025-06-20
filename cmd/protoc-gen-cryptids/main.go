@@ -53,8 +53,33 @@ func main() {
 		log.Fatal(err)
 	}
 
+	paramKv := make(map[string]string)
+	params := strings.Split(gen.Request.GetParameter(), ":")
+	for _, p := range params {
+		k, v, _ := strings.Cut(p, "=")
+		fmt.Fprintf(os.Stderr, "%s=%s\n", k, v)
+		paramKv[k] = v
+	}
+
+	// The type needs to be split since we can only output kotlin code into the
+	// src/main/kotlin folder if defined on the command line via output param.
+	//
+	// Base java class modification by default.
+	genJava := true
+	// Kotlin extension off by default.
+	genKt := false
+	if paramKv["g"] == "java" {
+		genJava = true
+		genKt = false
+	} else if paramKv["g"] == "kotlin" {
+		genKt = true
+		genJava = false
+	}
+
 	// Emit the driver for providers to hook into.
-	java.GenCryptProvider(gen)
+	if genJava {
+		java.GenCryptProvider(gen)
+	}
 
 	var addlFiles []*pluginpb.CodeGeneratorResponse_File
 	for _, f := range gen.Files {
@@ -64,11 +89,21 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "processing %s\n", f.Desc.Path())
 
-		fa, _ := strings.CutSuffix(string(f.Desc.Name()), ".")
 		for _, m := range f.Messages {
-			if m.Desc.FullName() == types.TypeEBytes.FullName() {
-				gf := generateJavaCryptHelpers(gen, f, m)
-				addlFiles = append(addlFiles, gf)
+			if m.Desc.FullName() == types.TypeEBytes.FullName() || m.Desc.FullName() == types.TypeEInt.FullName() {
+				if genJava {
+					var fun func() string
+					switch m.Desc.FullName() {
+					case types.TypeEBytes.FullName():
+						fun = java.EBytesDecrypt
+					case types.TypeEInt.FullName():
+						fun = java.EIntDecrypt
+					}
+
+					gf := generateJavaCryptHelpers(gen, f, m, fun)
+					fmt.Fprintf(os.Stderr, "file:%s ip:%s :%s\n", gf.GetName(), gf.GetInsertionPoint(), gf.GetContent())
+					addlFiles = append(addlFiles, gf)
+				}
 				continue
 			}
 
@@ -79,12 +114,18 @@ func main() {
 
 			fmt.Fprintf(os.Stderr, " - m: %s\n", m.Desc.Name())
 
-			gf := generateJavaBuilderCryptSetters(gen, f, m)
+			if genJava {
+				gf := generateJavaBuilderCryptSetters(gen, f, m)
+				fmt.Fprintf(os.Stderr, "file:%s ip:%s :%s\n", gf.GetName(), gf.GetInsertionPoint(), gf.GetContent())
+				addlFiles = append(addlFiles, gf)
+			}
 
-			fmt.Fprintf(os.Stderr, "fa:%s fn:%s ip:%s\n", fa, gf.GetName(), gf.GetInsertionPoint())
-			addlFiles = append(addlFiles, gf)
+			if genKt {
+
+			}
 		}
 	}
+
 	resp := gen.Response()
 	resp.File = append(resp.File, addlFiles...)
 	if err := outputResponse(resp); err != nil {
@@ -92,16 +133,14 @@ func main() {
 	}
 }
 
-func generateJavaCryptHelpers(gen *protogen.Plugin, f *protogen.File, m *protogen.Message) *pluginpb.CodeGeneratorResponse_File {
+func generateJavaCryptHelpers(gen *protogen.Plugin, f *protogen.File, m *protogen.Message, ccc func() string) *pluginpb.CodeGeneratorResponse_File {
 	fa, _ := strings.CutSuffix(string(f.Desc.Name()), ".")
 	javaPkgBase := strings.ReplaceAll(*f.Proto.Options.JavaPackage, ".", "/")
 	fileName := javaPkgBase + "/" + types.Capitalize(fa) + "Proto.java"
 	iPoint := "class_scope:" + string(m.Desc.FullName())
 
-	typeBytes := types.PackageFor(types.TypeEBytes)
-
 	var c strings.Builder
-	c.WriteString(java.EBytesDecrypt(typeBytes))
+	c.WriteString(ccc())
 
 	content := c.String()
 	return &pluginpb.CodeGeneratorResponse_File{

@@ -13,7 +13,8 @@ base: gen all
 test: gen all
 	mkdir -p ./test/src/generated/{java,kotlin}
 	protoc --java_out=./test/src/generated/java \
+               --cryptids_out=g=java:./test/src/generated/java \
                --kotlin_out=./test/src/generated/kotlin \
-               --cryptids_out=paths=source_relative:./test/src/generated/java \
+               --cryptids_out=g=kotlin:./test/src/generated/kotlin \
           test/test.proto crypt/types.proto
  

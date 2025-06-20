@@ -1,4 +1,6 @@
+import com.example.mytest.MyMessageKt
 import com.example.mytest.Test
+import com.example.mytest.myMessage
 import com.github.mtps.protobuf.crypt.CryptProto
 import com.github.mtps.protobuf.crypt.CryptProvider
 import com.google.protobuf.Any
@@ -13,6 +15,12 @@ fun main() {
     )
 
     val any = Any.pack(StringValue.newBuilder().setValue("hello").build())
+
+    val kt = myMessage {
+        encryptedBytes = encrypt(any.toByteArray())
+        encryptedInt = encrypt(123)
+    }
+
 
     val msg = Test.MyMessage.newBuilder()
         .setEncryptedBytes("Test".toByteArray(Charsets.UTF_8))
