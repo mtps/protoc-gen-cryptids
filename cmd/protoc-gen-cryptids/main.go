@@ -87,8 +87,11 @@ func main() {
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "processing %s\n", f.Desc.Path())
+		if genKt {
+			generateKotlinFile(gen, f)
+		}
 
+		fmt.Fprintf(os.Stderr, "processing %s\n", f.Desc.Path())
 		for _, m := range f.Messages {
 			if m.Desc.FullName() == types.TypeEBytes.FullName() || m.Desc.FullName() == types.TypeEInt.FullName() {
 				if genJava {
@@ -96,8 +99,10 @@ func main() {
 					switch m.Desc.FullName() {
 					case types.TypeEBytes.FullName():
 						fun = java.EBytesDecrypt
+						break
 					case types.TypeEInt.FullName():
 						fun = java.EIntDecrypt
+						break
 					}
 
 					gf := generateJavaCryptHelpers(gen, f, m, fun)
@@ -200,7 +205,7 @@ func generateJavaBuilderCryptSetters(gen *protogen.Plugin, f *protogen.File, m *
 	}
 }
 
-func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
+func generateKotlinFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
 	fmt.Fprintf(os.Stderr, "generating for %s\n", file.Desc.Path())
 
 	var cryptJavaClass string
