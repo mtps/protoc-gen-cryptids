@@ -78,6 +78,7 @@ func main() {
 
 	// Emit the driver for providers to hook into.
 	if genJava {
+		java.GenCryptProviderRegistry(gen)
 		java.GenCryptProvider(gen)
 	}
 
@@ -93,7 +94,12 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "processing %s\n", f.Desc.Path())
 		for _, m := range f.Messages {
-			if m.Desc.FullName() == types.TypeEBytes.FullName() || m.Desc.FullName() == types.TypeEInt.FullName() {
+			if m.Desc.FullName() == types.TypeEBytes.FullName() ||
+				m.Desc.FullName() == types.TypeEInt.FullName() ||
+				m.Desc.FullName() == types.TypeETimestamp.FullName() ||
+				m.Desc.FullName() == types.TypeEAny.FullName() ||
+				m.Desc.FullName() == types.TypeEString.FullName() {
+
 				if genJava {
 					var fun func() string
 					switch m.Desc.FullName() {
@@ -103,9 +109,24 @@ func main() {
 					case types.TypeEInt.FullName():
 						fun = java.EIntDecrypt
 						break
+					case types.TypeETimestamp.FullName():
+						fun = java.ETimestampDecrypt
+						break
+					case types.TypeEAny.FullName():
+						fun = java.EAnyDecrypt
+						break
+					case types.TypeEString.FullName():
+						fun = java.EStringDecrypt
+						break
 					}
 
 					gf := generateJavaCryptHelpers(gen, f, m, fun)
+					fmt.Fprintf(os.Stderr, "file:%s ip:%s :%s\n", gf.GetName(), gf.GetInsertionPoint(), gf.GetContent())
+					addlFiles = append(addlFiles, gf)
+				}
+
+				if genKt {
+					gf := generateKotlinMessageHelpers(gen, f, m)
 					fmt.Fprintf(os.Stderr, "file:%s ip:%s :%s\n", gf.GetName(), gf.GetInsertionPoint(), gf.GetContent())
 					addlFiles = append(addlFiles, gf)
 				}
@@ -135,6 +156,17 @@ func main() {
 	resp.File = append(resp.File, addlFiles...)
 	if err := outputResponse(resp); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func generateKotlinMessageHelpers(gen *protogen.Plugin, f *protogen.File, m *protogen.Message) *pluginpb.CodeGeneratorResponse_File {
+	fa, _ := strings.CutSuffix(string(m.Desc.Name()), ".")
+	javaPkgBase := strings.ReplaceAll(*f.Proto.Options.JavaPackage, ".", "/")
+	fileName := javaPkgBase + "/" + types.Capitalize(fa) + "CryptKt.kt"
+
+	return &pluginpb.CodeGeneratorResponse_File{
+		Name:    proto.String(fileName),
+		Content: proto.String(""),
 	}
 }
 
@@ -206,7 +238,7 @@ func generateJavaBuilderCryptSetters(gen *protogen.Plugin, f *protogen.File, m *
 }
 
 func generateKotlinFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
-	fmt.Fprintf(os.Stderr, "generating for %s\n", file.Desc.Path())
+	fmt.Fprintf(os.Stderr, "generating kotlin for %s\n", file.Desc.Path())
 
 	var cryptJavaClass string
 	if file.Proto.Options.JavaOuterClassname != nil {
@@ -227,40 +259,24 @@ func generateKotlinFile(gen *protogen.Plugin, file *protogen.File) *protogen.Gen
 	g.P("package ", javaPackage)
 	g.P()
 	for _, message := range file.Messages {
-		typeName := cryptJavaClass + "." + string(message.Desc.Name())
+		typeName := string(message.Desc.Name())
 		fmt.Fprintf(os.Stderr, "typeName:%s\n", typeName)
-		for _, field := range message.Fields {
-			// Handle EStrings
-			if field.Desc.Kind() == protoreflect.MessageKind {
-				fieldTypeName := string(field.Desc.Message().FullName())
-				fieldName := types.Capitalize(types.SnakeToCamel(string(field.Desc.Name())))
-				switch fieldTypeName {
-				case string(types.TypeEString.FullName()):
-					fmt.Fprintf(os.Stderr, "detected encrypted string field %s\n", fieldName)
-					kotlin.EmitEStringWrapper(g, fieldName, typeName)
-					break
 
-				case string(types.TypeEBytes.FullName()):
-					fmt.Fprintf(os.Stderr, "detected encrypted bytes field %s\n", fieldName)
-					kotlin.EmitEBytesWrapper(g, fieldName, typeName)
-					break
-
-				case string(types.TypeETimestamp.FullName()):
-					fmt.Fprintf(os.Stderr, "detected encrypted timestamp field %s\n", fieldName)
-					kotlin.EmitETimestampWrapper(g, fieldName, typeName)
-					break
-
-				case string(types.TypeEInt.FullName()):
-					fmt.Fprintf(os.Stderr, "detected encrypted int field %s\n", fieldName)
-					kotlin.EmitEIntWrapper(g, fieldName, typeName)
-					break
-
-				case string(types.TypeEAny.FullName()):
-					fmt.Fprintf(os.Stderr, "detected encrypted anything field %s\n", fieldName)
-					kotlin.EmitEAnyWrapper(g, fieldName, typeName)
-					break
-				}
-			}
+		// Kotlin Dsl builder heplers.
+		if typeName == string(types.TypeEString.FullName()) {
+			kotlin.EmitEStringWrapper(g, typeName)
+		}
+		if typeName == string(types.TypeETimestamp.FullName()) {
+			kotlin.EmitETimestampWrapper(g, typeName)
+		}
+		if typeName == string(types.TypeEInt.FullName()) {
+			kotlin.EmitEIntWrapper(g, typeName)
+		}
+		if typeName == string(types.TypeEAny.FullName()) {
+			kotlin.EmitEAnyWrapper(g, typeName)
+		}
+		if typeName == string(types.TypeEBytes.FullName()) {
+			kotlin.EmitEBytesWrapper(g, typeName)
 		}
 	}
 	fmt.Fprintf(os.Stderr, "writing file %s\n", filename)

@@ -7,7 +7,6 @@ option java_package = "com.example.mytest";
 
 import "crypt/types.proto";
 
-// @@protoc_insertion_point(kt:test.MyMessage)
 message MyMessage {
     crypt.EString encrypted_string = 2;
     crypt.EBytes encrypted_bytes = 3;

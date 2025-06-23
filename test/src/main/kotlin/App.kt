@@ -1,7 +1,7 @@
 import com.example.mytest.Test
 import com.example.mytest.myMessage
-import com.github.mtps.protobuf.crypt.CryptProto.EInt.encrypt
 import com.github.mtps.protobuf.crypt.CryptProvider
+import com.github.mtps.protobuf.crypt.encrypted
 import com.google.protobuf.Any
 import com.google.protobuf.StringValue
 import java.util.Base64
@@ -16,14 +16,18 @@ fun main() {
     val any = Any.pack(StringValue.newBuilder().setValue("hello").build())
 
     val kt = myMessage {
-        // Add MyMessageKt.Dsl.encrypt(...) funcs.
+        encryptedBytes = any.toByteArray().encrypted()
+        encryptedInt = 123.encrypted()
 
+        encryptedBytes = encrypted(any.toByteArray())
+        encryptedInt = encrypted(123)
 
-        encryptedBytes = encrypt(any.toByteArray())
-        encryptedInt = encrypt(123)
+        encryptedBytes = encrypted { any.toByteArray() }
+        encryptedInt = encrypted { 123 }
     }
 
 
+    123.encrypted()
     val msg = Test.MyMessage.newBuilder()
         .setEncryptedBytes("Test".toByteArray(Charsets.UTF_8))
 //        .setEncryptedAny(any)

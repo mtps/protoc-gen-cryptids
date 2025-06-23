@@ -41,21 +41,53 @@ func BuilderSet(f *protogen.Field, retType string, pkg string) string {
 func EBytesDecrypt() string {
 	return ETypeDecrypt(
 		"byte[]",
-		"getValue().toByteArray()",
-		"value",
+		types.PackageFor(types.TypeEBytes),
+		"return value;",
+		"return value;",
 	)
 }
 
 func EIntDecrypt() string {
 	return ETypeDecrypt(
 		"int",
-		"java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(value).order(java.nio.ByteOrder.BIG_ENDIAN).array()",
-		"java.nio.ByteBuffer.wrap(value).getInt()",
+		types.PackageFor(types.TypeEInt),
+		"return java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(value).order(java.nio.ByteOrder.BIG_ENDIAN).array();",
+		"return java.nio.ByteBuffer.wrap(value).getInt();",
 	)
 }
 
-func ETypeDecrypt(retType string, toBytes string, fromBytes string) string {
-	pkg := types.PackageFor(types.TypeEBytes)
+func EStringDecrypt() string {
+	return ETypeDecrypt(
+		"String",
+		types.PackageFor(types.TypeEString),
+		"return value.getBytes();",
+		"return new String(value);",
+	)
+}
+
+func ETimestampDecrypt() string {
+	return ETypeDecrypt(
+		"com.google.protobuf.Timestamp",
+		types.PackageFor(types.TypeETimestamp),
+		"return java.nio.ByteBuffer.allocate(Integer.BYTES + Long.BYTES).putLong(value.getSeconds()).putInt(value.getNanos()).array();",
+		"java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(value).order(java.nio.ByteOrder.BIG_ENDIAN);\n"+
+			"  return com.google.protobuf.Timestamp.newBuilder().setSeconds(bb.getLong()).setNanos(bb.getInt()).build();",
+	)
+}
+
+func EAnyDecrypt() string {
+	return ETypeDecrypt(
+		"com.google.protobuf.Any",
+		types.PackageFor(types.TypeEAny),
+		"return value.toByteArray();",
+		"try { return com.google.protobuf.Any.parseFrom(value); } "+
+			"catch (com.google.protobuf.InvalidProtocolBufferException e) { "+
+			"throw new RuntimeException(\"Failed to convert from bytes to ProtoAny\", e); }",
+	)
+}
+
+func ETypeDecrypt(retType string, eType string, toBytes string, fromBytes string) string {
+
 	c := strings.Builder{}
 
 	// --
@@ -64,53 +96,46 @@ func ETypeDecrypt(retType string, toBytes string, fromBytes string) string {
 
 	// Core type: fromBytes
 	c.WriteString(fmt.Sprintf("public static %s fromBytes(byte[] value) {\n", retType))
-	c.WriteString(fmt.Sprintf("  return %s;\n", fromBytes))
-	c.WriteString("}\n")
+	c.WriteString(fmt.Sprintf("  %s\n", fromBytes))
+	c.WriteString("}\n\n")
 
 	// Core type: toBytes
-	c.WriteString(fmt.Sprintf("private byte[] toBytes() {\n"))
-	c.WriteString(fmt.Sprintf("  return %s;\n", toBytes))
-	c.WriteString("}\n")
+	c.WriteString(fmt.Sprintf("private static byte[] toBytes(%s value) {\n", retType))
+	c.WriteString(fmt.Sprintf("  %s\n", toBytes))
+	c.WriteString("}\n\n")
 
 	// wrap(value) -> EType with a provider.
-	c.WriteString(fmt.Sprintf("public static %s encrypt(%s value, java.util.function.Function<byte[], byte[]> encryptionProvider) {\n", pkg, retType))
-	c.WriteString(fmt.Sprintf("  return %s.newBuilder().setValue(\n", pkg))
-	c.WriteString(fmt.Sprintf("    com.google.protobuf.ByteString.copyFrom(encryptionProvider.apply(value))\n"))
+	c.WriteString(fmt.Sprintf("public static %s encrypt(%s value, java.util.function.Function<byte[], byte[]> encryptionProvider) {\n", eType, retType))
+	c.WriteString(fmt.Sprintf("  if (encryptionProvider == null) {\n"))
+	c.WriteString(fmt.Sprintf("    throw new NullPointerException();\n"))
+	c.WriteString(fmt.Sprintf("  }\n"))
+	c.WriteString(fmt.Sprintf("  return %s.newBuilder().setValue(\n", eType))
+	c.WriteString(fmt.Sprintf("    com.google.protobuf.ByteString.copyFrom(encryptionProvider.apply(toBytes(value)))\n"))
 	c.WriteString(fmt.Sprintf("  ).build();\n"))
-	c.WriteString(fmt.Sprintf("}\n"))
-	c.WriteString("\n")
+	c.WriteString(fmt.Sprintf("}\n\n"))
 
 	// wrap(value) -> EType.
-	c.WriteString(fmt.Sprintf("public static %s encrypt(%s value) {\n", pkg, retType))
-	c.WriteString(fmt.Sprintf("  return encrypt(value, com.github.mtps.protobuf.crypt.CryptProvider.enc);\n"))
-	c.WriteString(fmt.Sprintf("}\n"))
-	c.WriteString("\n")
+	c.WriteString(fmt.Sprintf("public static %s encrypt(%s value) {\n", eType, retType))
+	c.WriteString(fmt.Sprintf("  return encrypt(value, com.github.mtps.protobuf.crypt.CryptProviderRegistry.enc);\n"))
+	c.WriteString(fmt.Sprintf("}\n\n"))
+
+	// --
+	// Instance methods
+	// --
 
 	// EType.unwrap() -> primitive with a provider
-	c.WriteString(fmt.Sprintf("private %s decrypt(java.util.function.Function<byte[], byte[]> decryptionProvider) {\n", retType))
+	c.WriteString(fmt.Sprintf("public %s decrypt(java.util.function.Function<byte[], byte[]> decryptionProvider) {\n", retType))
+	c.WriteString(fmt.Sprintf("  if (decryptionProvider == null) {\n"))
+	c.WriteString(fmt.Sprintf("    throw new NullPointerException();\n"))
+	c.WriteString(fmt.Sprintf("  }\n"))
 	c.WriteString(fmt.Sprintf("  return fromBytes(decryptionProvider.apply(getValue().toByteArray()));\n"))
 	c.WriteString(fmt.Sprintf("}\n"))
 	c.WriteString("\n")
 
 	// EType.unwrap() -> primitive.
-	c.WriteString(fmt.Sprintf("private %s decrypt() {\n", retType))
-	c.WriteString(fmt.Sprintf("  return decrypt(com.github.mtps.protobuf.crypt.CryptProvider.enc);\n"))
+	c.WriteString(fmt.Sprintf("public %s decrypt() {\n", retType))
+	c.WriteString(fmt.Sprintf("  return decrypt(com.github.mtps.protobuf.crypt.CryptProviderRegistry.enc);\n"))
 	c.WriteString(fmt.Sprintf("}\n"))
 	c.WriteString("\n")
-	//
-	//// Instance methods
-	//// --
-	//
-	//// convert the current encrypted object type into the decrypted native type.
-	//c.WriteString(fmt.Sprintf("public %s decrypt(java.util.function.Function<byte[], byte[]> decryptionProvider) {\n", retType))
-	//c.WriteString("  return unwrap(decryptionProvider);\n")
-	//c.WriteString("}\n")
-	//c.WriteString("\n")
-	//
-	//c.WriteString(fmt.Sprintf("public %s decrypt() {\n", retType))
-	//c.WriteString("  return unwrap(com.github.mtps.protobuf.crypt.CryptProvider.dec);\n")
-	//c.WriteString("}\n")
-	//c.WriteString("\n")
-	//
 	return c.String()
 }
